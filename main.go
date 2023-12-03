@@ -17,11 +17,6 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-type Film struct {
-	Title    string
-	Director string
-}
-
 type Answer struct {
 	Number int
 	Text   string
@@ -121,8 +116,6 @@ func makeDatabaseQuery(query string, args ...interface{}) ([]map[string]interfac
 		fmt.Println("error in query", err)
 		return nil, err
 	}
-	// fmt.Printf(fmt.Sprintf("rows %v", rows))
-	// fmt.Println("\nrow len", rows.Next())
 	defer rows.Close()
 
 	columns, err := rows.Columns()
@@ -366,88 +359,6 @@ func getGroupScores(quizId string, group string) []Score {
 func main() {
 
 	home := func(w http.ResponseWriter, r *http.Request) {
-		// io.WriteString(w, r.Method)
-		fmt.Println(r.URL)
-
-		var quizName string
-		var group string
-		parts := strings.Split(r.URL.Path, "/")
-		if len(parts) >= 3 {
-			quizName = parts[1]
-			group = parts[2]
-			fmt.Printf("Quiz name: %s, Group: %s\n", quizName, group)
-		} else {
-			// change to send back an error message based on what is missing from the URL
-			http.NotFound(w, r)
-		}
-
-		tmpl := template.Must(template.ParseFiles("templates/home.html"))
-		films := map[string]interface{}{
-			"Films": []Film{
-				{Title: "Jurassic Park", Director: "Steven Spielberg"},
-				{Title: "Star Wars", Director: "George Lucas"},
-				{Title: "Ghostbusters", Director: "Ivan Reitman"},
-			},
-		}
-
-		if quizName != "" {
-			var questions []Question
-			db, err := sql.Open("sqlite3", "./data/quiz-data.db")
-			if err != nil {
-				fmt.Println("error connecting to database", err)
-				log.Fatal(err)
-			}
-			defer db.Close()
-
-			quizQuery := `SELECT 
-			sort_order, 
-			question, 
-			answer_1, 
-			answer_2, 
-			answer_3, 
-			answer_4, 
-			correct_answer 
-			FROM questions 
-			WHERE quiz_id = ?
-			AND active = 1`
-
-			rows, err := db.Query(quizQuery, quizName)
-			if err != nil {
-				fmt.Println("error in query", err)
-				log.Fatal(err)
-			}
-			defer rows.Close()
-
-			for rows.Next() {
-				var order, correct_answer int
-				var question string
-				var answer_1, answer_2, answer_3, answer_4 sql.NullString
-				err := rows.Scan(&order, &question, &answer_1, &answer_2, &answer_3, &answer_4, &correct_answer)
-				if err != nil {
-					log.Fatal(err)
-				}
-				fmt.Printf("question: %d is: %s and the correct answer is: %d\n", order, question, correct_answer)
-				// questionDetails := Question{
-				// 	Order:         order,
-				// 	Question:      question,
-				// 	Answers:       []sql.NullString{answer_1, answer_2, answer_3, answer_4},
-				// 	CorrectAnswer: correct_answer,
-				// }
-				// questions = append(questions, questionDetails)
-			}
-
-			// Check for errors from iterating over rows
-			if err := rows.Err(); err != nil {
-				log.Fatal(err)
-			}
-
-			films["Questions"] = questions
-		}
-
-		tmpl.Execute(w, films)
-	}
-
-	start := func(w http.ResponseWriter, r *http.Request) {
 		quizId, group := getQuizDetails(r.URL.Path, "initial")
 		fmt.Println(group)
 		quizTitle := "Not Found"
@@ -460,23 +371,12 @@ func main() {
 				log.Fatal(err)
 			}
 			if len(result) > 0 {
-				// for _, row := range result {
-				// 	fmt.Println(row["name"])
-				// }
 				quizTitle = result[0]["name"].(string)
 				fmt.Println("quiz title", quizTitle)
 			}
-			// quizInfo, err := json.Marshal(map[string]string{"name": quizTitle})
-			// if err != nil {
-			// 	fmt.Println(err.Error())
-			// }
-			// fmt.Println("quizInfo", string(quizInfo))
-			// http.SetCookie(w, &http.Cookie{Name: "quizDetails", Value: string(quizInfo), Path: "/"})
 		}
 
-		// tmpl := template.Must(template.ParseFiles("templates/home.html"))
 		tmpl, err := template.ParseFiles("templates/base.html", "templates/home.html")
-		// tmpl, err := template.ParseFiles("templates/home.html.bkcp")
 		if err != nil {
 			fmt.Println("Error rendering template", err.Error())
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -513,7 +413,6 @@ func main() {
 		}
 
 		contestantDetails := getContestantDetails(contestantId)
-		// group := r.PostFormValue("group")
 		fmt.Println("group", contestantDetails.Group, "vs", group)
 		if len(currentQuestion) > 0 {
 			// add one to get the next question
@@ -521,12 +420,6 @@ func main() {
 			questionNum = convertedNum + 1
 			quizStarted = true
 		}
-		// use that in the query, if not found assume first one
-		// fmt.Println(r.Referer())
-		// contestantName := r.PostFormValue("contestant-name")
-		// w.Header().Add("X-contestant-name", contestantName)
-		// c, _ := r.Cookie("quizDetails")
-		// fmt.Println("cookie", c)
 
 		var quizTitle string
 		var retrievedQuestion Question
@@ -540,6 +433,7 @@ func main() {
 			"templates/quiz.html",
 			"templates/question.html",
 		}
+
 		// if this isn't the first question we only need the question element rendered
 		if questionNum != 1 || quizStarted {
 			templatesToRender = []string{
@@ -599,9 +493,8 @@ func main() {
 	recordAnswer := func(w http.ResponseWriter, r *http.Request) {
 		// get the submitted form details
 		var gradeText string
-		rand.Seed(time.Now().UnixNano())
 		// Generate a random number between 0 and 5
-		randomNumber := rand.Intn(6)
+		randomNumber := rand.Intn(5)
 		questionAnswered := r.PostFormValue("question")
 		questionAnsweredInt, _ := strconv.Atoi(questionAnswered)
 		contestantId := r.PostFormValue("contestant-id")
@@ -613,11 +506,6 @@ func main() {
 		}
 		if err == nil {
 			// check if this is the correct answer
-			// correctAnswerQuery := `SELECT correct_answer FROM questions WHERE quiz_id = ? AND sort_order = ?`
-			// result, err := makeDatabaseQuery(correctAnswerQuery, quizId, questionAnswered)
-			// if err != nil {
-			// 	fmt.Println("Error retrieving answer", err.Error())
-			// }
 			var retrievedQuestion Question
 			_, retrievedQuestion = getQuestionDetails(contestantDetails.QuizId, questionAnswered)
 			fmt.Println("correct answer", retrievedQuestion.CorrectAnswer)
@@ -717,12 +605,9 @@ func main() {
 		var contestantDetails Contestant
 		if contestantId != "" {
 			contestantDetails = getContestantDetails(contestantId)
-
 			// get all scores for the group, sort by points and total time
 			groupScores = getGroupScores(quizId, contestantDetails.Group)
-
 			showError = false
-
 		}
 
 		tmpl, err := template.ParseFiles(templatesToRender...)
@@ -743,35 +628,11 @@ func main() {
 		}
 	}
 
-	addFilm := func(w http.ResponseWriter, r *http.Request) {
-		// log.Print("HTMX request received")
-		// log.Print(r.Header.Get("HX-Request"))
-
-		title := r.PostFormValue("title")
-		director := r.PostFormValue("director")
-
-		fmt.Println(title)
-		fmt.Println(director)
-
-		// htmlStr := fmt.Sprintf("<li>%s <i>dir.</i> %s</li>", title, director)
-		// tmpl, _ := template.New("t").Parse(htmlStr)
-		// tmpl.Execute(w, nil)
-		tmpl := template.Must(template.ParseFiles("templates/home.html"))
-		tmpl.ExecuteTemplate(w, "film-list-element", Film{Title: title, Director: director})
-	}
-
-	// http.HandleFunc("/", home)
 	http.HandleFunc("/quiz/", quiz)
 	http.HandleFunc("/record-answer/", recordAnswer)
 	http.HandleFunc("/scoreboard/", scoreboard)
-	http.HandleFunc("/", start)
-	http.HandleFunc("/add-film/", addFilm)
-	http.HandleFunc("/ignore/", home)
+	http.HandleFunc("/", home)
 
-	// port := os.Getenv("PORT")
-	// if port == "" {
-	// 	port = "8080"
-	// }
 	port := "8001"
 	fmt.Println("Starting server on port", port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
