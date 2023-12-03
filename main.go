@@ -359,6 +359,37 @@ func getGroupScores(quizId string, group string) []Score {
 func main() {
 
 	home := func(w http.ResponseWriter, r *http.Request) {
+
+		existingContestant := false
+
+		if r.Method == "POST" {
+			// create new contestant
+
+			fmt.Println("referer", r.Referer())
+			fmt.Println("path", r.URL.Path)
+			quizId, group := getQuizDetails(r.URL.Path, "initial")
+			contestantName := r.PostFormValue("contestant-name")
+			contestantId := createContestant(quizId, contestantName, group)
+			fmt.Println("created contestantId", contestantId)
+
+			if contestantId != "" {
+				// if the person was created/retrieved successfully redirect to the first question
+				cookie := http.Cookie{
+					Name:  "contestant-id",
+					Value: contestantId,
+					Path:  "/",
+				}
+				http.SetCookie(w, &cookie)
+				http.Redirect(w, r, fmt.Sprintf("/quiz/%s/", quizId), http.StatusFound)
+			} else {
+				// if we found an existing record, update the value so we show the message in the template
+				existingContestant = true
+			}
+
+		}
+
+		// initial render or error creating contestant
+
 		quizId, group := getQuizDetails(r.URL.Path, "initial")
 		fmt.Println(group)
 		quizTitle := "Not Found"
@@ -383,34 +414,36 @@ func main() {
 			return
 		}
 
-		err = tmpl.ExecuteTemplate(w, "base", map[string]string{
-			"QuizTitle": quizTitle,
-			"QuizId":    quizId,
-			"Group":     group,
+		err = tmpl.ExecuteTemplate(w, "base", map[string]interface{}{
+			"QuizTitle":       quizTitle,
+			"QuizId":          quizId,
+			"Group":           group,
+			"ExistingMessage": existingContestant,
 		})
 		if err != nil {
 			fmt.Println(err.Error())
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		}
+
 	}
 
 	quiz := func(w http.ResponseWriter, r *http.Request) {
 		// modify this to look for a supplied question number
+		var contestantId string
 		questionNum := 1
 		quizStarted := false
 		currentQuestion := r.PostFormValue("question")
-		contestantId := r.PostFormValue("contestant-id")
-		fmt.Println("Contestant ID", contestantId)
-		quizId, group := getQuizDetails(r.URL.Path, "question")
-
-		// if no contestant-id was supplied in the form submit, we assume this is the first question, which is the first page after the start
-		// so we need to create contestant details
-		if contestantId == "" {
-			fmt.Println(r.Referer())
-			quizId, group = getQuizDetails(r.Referer(), "referrer")
-			contestantName := r.PostFormValue("contestant-name")
-			contestantId = createContestant(quizId, contestantName, group)
+		// for the first question the created contestant ID should be set in the cookie
+		cookie, err := r.Cookie("contestant-id")
+		if err != nil {
+			fmt.Println("Error reading cookie")
 		}
+		contestantId = cookie.Value
+		if contestantId == "" {
+			// for all subsequent questions it should be in the form values
+			contestantId = r.PostFormValue("contestant-id")
+		}
+		quizId, group := getQuizDetails(r.URL.Path, "question")
 
 		contestantDetails := getContestantDetails(contestantId)
 		fmt.Println("group", contestantDetails.Group, "vs", group)
@@ -446,14 +479,6 @@ func main() {
 			}
 		}
 
-		// if there was an existing record found
-		if contestantId == "" {
-			templatesToRender = []string{
-				"templates/base.html",
-				"templates/home.html",
-			}
-		}
-
 		tmpl, err := template.ParseFiles(templatesToRender...)
 		if err != nil {
 			fmt.Println("Error rendering template", err.Error())
@@ -467,15 +492,6 @@ func main() {
 			"Question":   retrievedQuestion,
 			"Contestant": contestantId,
 			"Group":      contestantDetails.Group,
-		}
-
-		if contestantId == "" {
-			templateValues = map[string]interface{}{
-				"QuizTitle":       quizTitle,
-				"QuizId":          quizId,
-				"Group":           contestantDetails.Group,
-				"ExistingMessage": true,
-			}
 		}
 
 		if questionNum != 1 || quizStarted {

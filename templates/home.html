@@ -9,7 +9,7 @@
 
     <div>
 
-        <form method="POST" action="/quiz/{{ .QuizId }}/">
+        <form method="POST" action="/{{ .QuizId }}/{{ .Group }}">
 
             <label for="contestant-name">Your name/nickname/nom de plume/handle</label>
             <input type="text" name="contestant-name" id="contestant-name">
@@ -17,8 +17,6 @@
             {{ if .ExistingMessage }}
                 <p class="error">A person with this name has already completed the quiz, please choose another name.</p>
             {{ end }}
-
-            <input type="hidden" name="group" value="{{ .Group }}">
 
             <div class="text-center">
                 <button type="submit" hx-disabled-elt="this">Start the quiz &rarr;</button>
