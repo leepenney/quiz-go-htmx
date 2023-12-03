@@ -1,0 +1,155 @@
+{{ define "base" }}
+<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>{{template "title" .}}</title>
+        <meta http-equiv="x-ua-compatible" content="ie=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <script src="https://unpkg.com/htmx.org@1.9.9"></script>
+        <style>
+            :root {
+                --color-darkest: #343a40;
+                --color-dark: #495057;
+                --color-medium: #ced4da;
+                --color-light: #f1f3f5;
+
+                --color-light-green: #C7E8CA;
+                --color-green: #5D9C59;
+                --color-dark-green: #113622;
+                --color-red: #DF2E38;
+            }
+            * {
+                padding: 0;
+                box-sizing: border-box;
+            }
+            html {
+                font-size: 120%;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+                    Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+            }
+            body {
+                min-height: 100vh;
+                color: var(--color-light);
+                background-color: var(--color-darkest);
+                padding: 3.2rem 0;
+            }
+            main {
+                width: 50vw;
+                margin: 0 auto;
+            }
+            input[type="text"] {
+                width: 100%;
+                padding: 0.5rem;
+                font-size: 1rem;
+                margin: 1rem 0;
+            }
+            button {
+                width: fit-content;
+                padding: 0.5rem 1rem;
+                border-radius: 2rem;
+                border: none;
+                background-color: var(--color-green);
+                font-weight: bold;
+                font-size: 1.3rem;
+                cursor: pointer;
+                color: var(--color-dark-green);
+            }
+            label.answer {
+                display: block;
+                width: 80%;
+                border-radius: 1.5rem;
+                background-color: var(--color-red);
+                padding: 1rem;
+                text-align: center;
+                color: white;
+                line-height: 1rem;
+                margin: 2rem auto;
+                cursor: pointer;
+            }
+            label.answer.correct {
+                background-color: var(--color-green);
+                border: 1px solid white;
+            }
+            form.question input[type="radio"] {
+                visibility: hidden;
+                position: absolute;
+                left: -10000px;
+            }
+            input:checked + label.answer {
+                background-color: white;
+                color: var(--color-red);
+            }
+            th, td {
+                padding: 0.5rem 1rem;
+            }
+            th {
+                background-color: var(--color-green);
+            }
+            tr:nth-child(2n) {
+	            background-color: var(--color-dark);
+            }
+            .error {
+                color: var(--color-red);
+            }
+            tr.highlight {
+                background: linear-gradient(to right, #BF953F, #FBF5B7, #AA771C);
+            }
+            .text-left {
+                text-align: left;
+            }
+            .text-center {
+                text-align: center;
+            }
+            .w-full {
+                width: 100%;
+            }
+            .w-80 {
+                width: 80%;
+            }
+            .mx-auto {
+                margin-left: auto;
+                margin-right: auto;
+            }
+            .block {
+                display: block;
+            }
+            .mt-4 {
+                margin-top: 4rem;
+            }
+            .pt-2 {
+                padding-top: 2rem;
+            }
+            .bt-2 {
+                border-top: 2px solid var(--color-dark);
+            }
+            .w-15ch {
+                width: 15ch;
+            }
+            .w-20ch {
+                width: 20ch;
+            }
+            .green {
+                color: var(--color-green);
+            }
+
+            @media (max-width: 400px) {
+                body {
+                    padding: 1rem 0;
+                }
+                .container {
+                    width: 95vw;
+                }
+            }
+        </style>
+    </head>
+
+    <body>
+
+        <main class="container">
+            {{template "body" .}}
+        </main>
+
+    </body>
+</html> 
+{{ end }}

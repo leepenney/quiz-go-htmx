@@ -1,0 +1,56 @@
+{{ define "question" }}
+
+    <h1>Question {{ .Question.Order }} / {{ .Question.TotalQuestions }}</h1>
+
+    <progress class="w-full" value="{{ .Question.Order }}" max="{{ .Question.TotalQuestions }}"></progress>
+
+    {{ if .Answer }}
+        <p>{{ .GradeText }}</p>
+    {{ end }}
+
+    <h3>{{ .Question.QuestionText }}?</h3>
+
+    <div>
+
+        <form class="question"
+            {{ if and .Answer (eq .Question.Order .Question.TotalQuestions) }}
+                action="/scoreboard/{{ .QuizId }}/{{ .Group }}/?c={{ .Contestant }}" method="POST"
+            {{- else }}
+                hx-post="{{ if .Answer }}
+                    /quiz/{{ .QuizId }}
+                {{- else }}
+                    /record-answer/
+                {{- end }}" hx-target="#question"
+            {{- end }}
+            >
+
+            {{ range .Question.Answers }}
+            <input type="radio" name="answers" id="answer_{{ .Number }}" value="{{ .Number }}" 
+                {{ if not $.Answer }}required{{ end }} 
+                {{ if $.Answer }}disabled{{ end }}>
+            <label for="answer_{{ .Number }}" class="answer {{ if and $.Answer (eq .Number $.Question.CorrectAnswer) }}correct{{ end }}">{{ .Text }}</label>
+            {{ end }}
+
+            <input type="hidden" name="question" value="{{ .Question.Order }}">
+            <input type="hidden" name="contestant-id" value="{{ .Contestant }}">
+
+            <div class="mt-4 pt-2 bt-2">
+                <button class="w-80 mx-auto block" type="submit" hx-disabled-elt="this">
+                    {{ if .Answer }}
+                        {{ if eq .Question.Order .Question.TotalQuestions }}
+                            See your results
+                        {{- else }}
+                            Next
+                        {{- end }}
+                    {{- else }}
+                        Submit your answer
+                    {{- end }}
+                </button>
+                <span id="loading" aria-busy="true" class="htmx-indicator"></span>
+            </div>
+
+        </form>
+
+    </div>
+
+{{ end }}

@@ -1,0 +1,32 @@
+{{ define "title" }}{{ .QuizTitle }} quiz - Home{{ end }}
+{{ define "body" }}
+
+    <h1>Welcome to the {{ .QuizTitle }} quiz</h1>
+
+    <p>To get started, enter your name in the field below and click Start.</p>
+
+    <p>You get a point for each correct answer and the time you take counts as well (no points, but the fastest gets ranked higher).</p>
+
+    <div>
+
+        <form method="POST" action="/quiz/{{ .QuizId }}/">
+
+            <label for="contestant-name">Your name/nickname/nom de plume/handle</label>
+            <input type="text" name="contestant-name" id="contestant-name">
+
+            {{ if .ExistingMessage }}
+                <p class="error">A person with this name has already completed the quiz, please choose another name.</p>
+            {{ end }}
+
+            <input type="hidden" name="group" value="{{ .Group }}">
+
+            <div class="text-center">
+                <button type="submit" hx-disabled-elt="this">Start the quiz &rarr;</button>
+                <span id="loading" aria-busy="true" class="htmx-indicator"></span>
+            </div>
+
+        </form>
+
+    </div>
+
+{{ end }}

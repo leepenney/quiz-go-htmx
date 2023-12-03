@@ -1,0 +1,36 @@
+{{ define "title" }}{{ .QuizTitle }} quiz - Scoreboard{{ end }}
+{{ define "body" }}
+    {{ if .ShowError }}
+        <p>Unable to show scores, missing group, quiz or contestant details.</p>
+    {{ else }}
+        <h1>{{ .QuizTitle }} Scoreboard</h1>
+
+        <p>{{ .Contestant.ContestantName }}, you correctly answered {{ .Contestant.CorrectAnswers }} 
+                {{ if eq .Contestant.CorrectAnswers 1 }}
+                    question 
+                {{- else }}
+                    questions 
+                {{- end }}
+            out of a total of {{ .TotalQuestions }} questions.
+        </p>
+
+        <table class="w-full" cellspacing="0" cellpadding="0" border="0">
+            <thead>
+                <tr>
+                    <th class="text-left">Name</th>
+                    <th>Correct Answers</th>
+                    <th>Time Taken</th>
+                </tr>
+            </thead>
+            <tbody>
+            {{ range .Scores }}
+                <tr class="{{ if eq $.Contestant.ContestantId .ContestantId }}highlight{{ end }}">
+                    <td>{{ .ContestantName }}</td>
+                    <td class="text-center w-20ch">{{ .CorrectAnswers }}</td>
+                    <td class="text-center w-15ch">{{ .TimeTaken }}</td>
+                </tr>
+            {{ end }}
+            </tbody>
+        </table>
+    {{ end }}
+{{ end }}
