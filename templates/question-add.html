@@ -1,0 +1,42 @@
+{{ define "title" }}Create Question{{ end }}
+{{ define "body" }}
+
+    <h1>Add a new question</h1>
+
+    <div id="add-question">
+
+        <form hx-post="/create-question/" hx-target="#response">
+
+            <label for="quiz_id">Quiz ID</label>
+            <input type="text" name="quiz_id" id="quiz_id" required>
+
+            <label for="sort_order">Question number</label>
+            <input type="number" name="sort_order" id="sort_order" min="1" required>
+
+            <label for="question">Question</label>
+            <input type="text" name="question" id="question" minlength="10" required>
+
+            <label for="answer_1">Answer 1</label>
+            <input type="text" name="answer_1" id="answer_1">
+
+            <label for="answer_2">Answer 2</label>
+            <input type="text" name="answer_2" id="answer_2">
+
+            <label for="answer_3">Answer 3</label>
+            <input type="text" name="answer_3" id="answer_3">
+
+            <label for="answer_4">Answer 4</label>
+            <input type="text" name="answer_4" id="answer_4">
+
+            <label for="correct_answer">Correct answer</label>
+            <input type="number" name="correct_answer" id="correct_answer" min="1" max="4" required>
+
+            <button type="submit">Create</button>
+
+        </form>
+
+        <div id="response"></div>
+
+    </div>
+
+{{ end }}

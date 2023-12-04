@@ -5,7 +5,7 @@
     <progress class="w-full" value="{{ .Question.Order }}" max="{{ .Question.TotalQuestions }}"></progress>
 
     {{ if .Answer }}
-        <p>{{ .GradeText }}</p>
+        <p class="grade text-center">{{ .GradeText }}</p>
     {{ end }}
 
     <h3>{{ .Question.QuestionText }}?</h3>
