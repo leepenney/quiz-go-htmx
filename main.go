@@ -78,7 +78,6 @@ func getQuizDetails(urlPath string, urlType string) (extractedQuidId string, gro
 	var quidId string
 	var group string
 	parts := strings.Split(urlPath, "/")
-	fmt.Printf("parts %v", parts)
 
 	if len(parts) >= 3 {
 		if urlType == "question" {
@@ -104,16 +103,14 @@ func getQuizDetails(urlPath string, urlType string) (extractedQuidId string, gro
 func makeDatabaseQuery(query string, args ...interface{}) ([]map[string]interface{}, error) {
 	db, err := sql.Open("sqlite3", "./data/quiz-data.db")
 	if err != nil {
-		fmt.Println("error connecting to database", err)
+		log.Panicln("error connecting to database", err.Error())
 		return nil, err
 	}
 	defer db.Close()
 
-	fmt.Printf("Executing query: %s with args: %v\n", query, args)
-	resultsFound := false
 	rows, err := db.Query(query, args...)
 	if err != nil {
-		fmt.Println("error in query", err)
+		log.Panicln("error in query", err.Error())
 		return nil, err
 	}
 	defer rows.Close()
@@ -126,7 +123,6 @@ func makeDatabaseQuery(query string, args ...interface{}) ([]map[string]interfac
 	var result []map[string]interface{}
 
 	for rows.Next() {
-		resultsFound = true
 		// Create a slice to hold the values of each column
 		values := make([]interface{}, len(columns))
 		for i := range columns {
@@ -149,8 +145,6 @@ func makeDatabaseQuery(query string, args ...interface{}) ([]map[string]interfac
 		result = append(result, rowData)
 	}
 
-	fmt.Println("rows", resultsFound)
-
 	return result, nil
 }
 
@@ -168,8 +162,7 @@ func getQuestionDetails(quizId string, questionNumber string) (string, Question)
 
 	result, err := makeDatabaseQuery(questionQuery, quizId, questionNumber)
 	if err != nil {
-		fmt.Println("Error getting quiz details", err.Error())
-		log.Fatal(err)
+		log.Fatal("Error getting quiz details", err.Error())
 	}
 
 	if len(result) > 0 {
@@ -204,31 +197,22 @@ func getQuestionDetails(quizId string, questionNumber string) (string, Question)
 }
 
 func insertContestant(quizId string, contestantName string, group string) string {
-	var contestantId int64
 
 	db, err := sql.Open("sqlite3", "./data/quiz-data.db")
 	if err != nil {
-		fmt.Println("error connecting to database", err.Error())
+		log.Fatal("error connecting to database", err.Error())
 		return ""
 	}
 	defer db.Close()
 
 	generatedContestantId := generateContestantId(contestantName, quizId, group)
 	insertQuery := "INSERT INTO scores(quiz_id, `group`, name, correct_answers, questions_answered, contestant_id) VALUES (?, ?, ?, 0, 0, ?)"
-	fmt.Printf("Executing query: %s with args: %s %s %s %s\n", insertQuery, quizId, strings.ToLower(group), contestantName, generatedContestantId)
 
-	insertedId, err := db.Exec(insertQuery, quizId, strings.ToLower(group), contestantName, generatedContestantId)
-	if err != nil {
-		fmt.Println("error in query", err.Error())
+	_, insertErr := db.Exec(insertQuery, quizId, strings.ToLower(group), contestantName, generatedContestantId)
+	if insertErr != nil {
+		log.Panicln("error in query", err.Error())
 		return ""
 	}
-
-	contestantId, err = insertedId.LastInsertId()
-	if err != nil {
-		fmt.Println("error getting last insert ID", err.Error())
-		return ""
-	}
-	fmt.Println("Inserted ID", contestantId)
 
 	return generatedContestantId
 }
@@ -240,12 +224,10 @@ func createContestant(quizId string, contestantName string, group string) string
 	checkExistsQuery := "SELECT contestant_id, questions_answered FROM scores WHERE quiz_id = ? AND `group` = ? AND name = ?"
 	existsResult, existsErr := makeDatabaseQuery(checkExistsQuery, strings.ToLower(quizId), strings.ToLower(group), contestantName)
 	if existsErr != nil {
-		fmt.Println("Error creating person record", existsErr.Error())
-		log.Fatal(existsErr.Error())
+		log.Panicln("Error creating person record", existsErr.Error())
 	}
 
 	if len(existsResult) > 0 {
-		fmt.Println("Found existing record")
 		// we found a record with those details already
 		if existsResult[0]["questions_answered"].(int64) < 1 {
 			// if they haven't actually answered anything, continue with the retrieved ID
@@ -268,7 +250,7 @@ func getContestantDetails(contestantId string) Contestant {
 	contestantQuery := "SELECT * FROM scores WHERE contestant_id = ?"
 	contestantResult, err := makeDatabaseQuery(contestantQuery, contestantId)
 	if err != nil {
-		fmt.Println("Error retrieving contestant details", err.Error())
+		log.Panicln("Error retrieving contestant details", err.Error())
 	}
 
 	if len(contestantResult) > 0 {
@@ -304,8 +286,7 @@ func updateContestant(contestantId string, setStarted bool, correctAnswer bool) 
 	}
 	updateResult, updateErr := makeDatabaseQuery(updateQuery, contestantId)
 	if updateErr != nil {
-		fmt.Println("Error updating score for", contestantId, updateErr.Error())
-		log.Fatal(updateErr.Error())
+		log.Fatalln("Error updating score for", contestantId, updateErr.Error())
 	}
 
 	if updateResult != nil || len(updateResult) > 0 {
@@ -334,13 +315,12 @@ func getGroupScores(quizId string, group string) []Score {
 		ORDER BY correct_answers DESC, (strftime('%s', finished) - strftime('%s', started)) ASC`
 	groupScoreResult, err := makeDatabaseQuery(groupScoreQuery, quizId, group)
 	if err != nil {
-		fmt.Println("Error getting scores", err.Error())
+		log.Fatalln("Error getting scores", err.Error())
 	}
 
 	var scores []Score
 
-	for key, row := range groupScoreResult {
-		fmt.Println("row:", key)
+	for _, row := range groupScoreResult {
 		formattedTimeTaken := secondsToDurationString(row["time_taken_seconds"].(int64))
 
 		thisScore := Score{
@@ -365,12 +345,9 @@ func main() {
 		if r.Method == "POST" {
 			// create new contestant
 
-			fmt.Println("referer", r.Referer())
-			fmt.Println("path", r.URL.Path)
 			quizId, group := getQuizDetails(r.URL.Path, "initial")
 			contestantName := r.PostFormValue("contestant-name")
 			contestantId := createContestant(quizId, contestantName, group)
-			fmt.Println("created contestantId", contestantId)
 
 			if contestantId != "" {
 				// if the person was created/retrieved successfully redirect to the first question
@@ -391,25 +368,22 @@ func main() {
 		// initial render or error creating contestant
 
 		quizId, group := getQuizDetails(r.URL.Path, "initial")
-		fmt.Println(group)
 		quizTitle := "Not Found"
 
 		if quizId != "" {
 			quizDetails := "SELECT name FROM quizzes WHERE quiz_id = ?"
 			result, err := makeDatabaseQuery(quizDetails, quizId)
 			if err != nil {
-				fmt.Println("Error getting quiz details", err)
-				log.Fatal(err)
+				log.Fatal("Error getting quiz details", err)
 			}
 			if len(result) > 0 {
 				quizTitle = result[0]["name"].(string)
-				fmt.Println("quiz title", quizTitle)
 			}
 		}
 
 		tmpl, err := template.ParseFiles("templates/base.html", "templates/home.html")
 		if err != nil {
-			fmt.Println("Error rendering template", err.Error())
+			log.Fatalln("Error rendering template", err.Error())
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
@@ -421,7 +395,7 @@ func main() {
 			"ExistingMessage": existingContestant,
 		})
 		if err != nil {
-			fmt.Println(err.Error())
+			log.Fatalln(err.Error())
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		}
 
@@ -436,17 +410,16 @@ func main() {
 		// for the first question the created contestant ID should be set in the cookie
 		cookie, err := r.Cookie("contestant-id")
 		if err != nil {
-			fmt.Println("Error reading cookie")
+			log.Fatalln("Error reading cookie")
 		}
 		contestantId = cookie.Value
 		if contestantId == "" {
 			// for all subsequent questions it should be in the form values
 			contestantId = r.PostFormValue("contestant-id")
 		}
-		quizId, group := getQuizDetails(r.URL.Path, "question")
+		quizId, _ := getQuizDetails(r.URL.Path, "question")
 
 		contestantDetails := getContestantDetails(contestantId)
-		fmt.Println("group", contestantDetails.Group, "vs", group)
 		if len(currentQuestion) > 0 {
 			// add one to get the next question
 			convertedNum, _ := strconv.Atoi(currentQuestion)
@@ -475,13 +448,13 @@ func main() {
 		} else {
 			updateSucceeded := updateContestant(contestantId, true, false)
 			if !updateSucceeded {
-				fmt.Println("Error when setting started datetime")
+				log.Fatalln("Error when setting started datetime")
 			}
 		}
 
 		tmpl, err := template.ParseFiles(templatesToRender...)
 		if err != nil {
-			fmt.Println("Error rendering template", err.Error())
+			log.Fatalln("Error rendering template", err.Error())
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
@@ -500,7 +473,7 @@ func main() {
 			err = tmpl.ExecuteTemplate(w, "base", templateValues)
 		}
 		if err != nil {
-			fmt.Println(err.Error())
+			log.Fatalln(err.Error())
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		}
 
@@ -518,29 +491,27 @@ func main() {
 		selectedAnswer := r.PostFormValue("answers")
 		selectedAnswerInt, err := strconv.Atoi(selectedAnswer)
 		if err != nil {
-			fmt.Println("Error converting answer string to int", err.Error())
+			log.Panicln("Error converting answer string to int", err.Error())
 		}
 		if err == nil {
 			// check if this is the correct answer
 			var retrievedQuestion Question
 			_, retrievedQuestion = getQuestionDetails(contestantDetails.QuizId, questionAnswered)
-			fmt.Println("correct answer", retrievedQuestion.CorrectAnswer)
 
 			if retrievedQuestion.CorrectAnswer != 0 {
 
 				if selectedAnswerInt == int(retrievedQuestion.CorrectAnswer) {
 					// update the score if this is the correct answer
-					fmt.Println("correct answer selected")
 					gradeText = fmt.Sprintf("<span class=\"green\">Correct!<span> %s", CorrectAnswerText[randomNumber])
 					updateSucceeded := updateContestant(contestantId, false, true)
 					if !updateSucceeded {
-						fmt.Println("Error when updating answer totals")
+						log.Fatalln("Error when updating answer totals for", contestantId)
 					}
 				} else {
 					gradeText = fmt.Sprintf("<span class=\"error\">Incorrect!<span> %s", IncorrectAnswerText[randomNumber])
 					updateSucceeded := updateContestant(contestantId, false, false)
 					if !updateSucceeded {
-						fmt.Println("Error when updating answer totals")
+						log.Fatalln("Error when updating answer totals for", contestantId)
 					}
 				}
 
@@ -549,7 +520,7 @@ func main() {
 					finishQuery := "UPDATE scores SET finished = DATETIME('now') WHERE contestant_id = ?"
 					_, err := makeDatabaseQuery(finishQuery, contestantId)
 					if err != nil {
-						fmt.Println("Error setting finish time", err.Error())
+						log.Fatalln("Error setting finish time for", contestantId, err.Error())
 					}
 				}
 
@@ -557,7 +528,7 @@ func main() {
 				// include a next button to move to the next one
 				tmpl, err := template.ParseFiles("templates/question.html")
 				if err != nil {
-					fmt.Println("Error rendering template", err.Error())
+					log.Fatalln("Error rendering template", err.Error())
 					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 					return
 				}
@@ -572,7 +543,7 @@ func main() {
 
 				err = tmpl.ExecuteTemplate(w, "question", templateValues)
 				if err != nil {
-					fmt.Println(err.Error())
+					log.Fatalln("Error rendering template", err.Error())
 					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 				}
 			}
@@ -580,8 +551,7 @@ func main() {
 	}
 
 	scoreboard := func(w http.ResponseWriter, r *http.Request) {
-		quizId, group := getQuizDetails(r.URL.Path, "scoreboard")
-		fmt.Println(group)
+		quizId, _ := getQuizDetails(r.URL.Path, "scoreboard")
 		quizTitle := "Not Found"
 		totalQuestions := int64(0)
 
@@ -589,13 +559,11 @@ func main() {
 			quizDetails := "SELECT name, (SELECT COUNT(*) FROM questions WHERE quiz_id = ? AND active = 1) AS total_questions FROM quizzes WHERE quiz_id = ?"
 			result, err := makeDatabaseQuery(quizDetails, quizId, quizId)
 			if err != nil {
-				fmt.Println("Error getting quiz details", err)
-				log.Fatal(err)
+				log.Fatalln("Error getting quiz details", err)
 			}
 			if len(result) > 0 {
 				quizTitle = result[0]["name"].(string)
 				totalQuestions = result[0]["total_questions"].(int64)
-				fmt.Println("quiz title", quizTitle)
 			}
 		}
 
@@ -628,7 +596,7 @@ func main() {
 
 		tmpl, err := template.ParseFiles(templatesToRender...)
 		if err != nil {
-			fmt.Println("Error rendering template", err.Error())
+			log.Fatalln("Error rendering template", err.Error())
 		}
 
 		err = tmpl.ExecuteTemplate(w, "base", map[string]interface{}{
@@ -639,7 +607,7 @@ func main() {
 			"ShowError":      showError,
 		})
 		if err != nil {
-			fmt.Println(err.Error())
+			log.Fatalln("Error rendering template", err.Error())
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		}
 	}
@@ -651,11 +619,6 @@ func main() {
 		}
 
 		if r.Method == "POST" {
-			// get the question details
-			// make a db request
-			// return response
-			fmt.Println("post detected")
-
 			var errorText string
 
 			quizId := r.PostFormValue("quiz_id")
@@ -679,10 +642,10 @@ func main() {
 			}
 
 			if errorText != "" {
-				fmt.Println("Error detected", errorText)
+				log.Fatalln("Error detected", errorText)
 				tmpl, err := template.New("error").Parse(errorText)
 				if err != nil {
-					fmt.Println("Error rendering template", err.Error())
+					log.Fatalln("Error rendering template", err.Error())
 				}
 				tmpl.Execute(w, "error")
 			} else {
@@ -693,7 +656,7 @@ func main() {
 
 				db, err := sql.Open("sqlite3", "./data/quiz-data.db")
 				if err != nil {
-					fmt.Println("error connecting to database", err.Error())
+					log.Fatalln("error connecting to database", err.Error())
 				}
 				defer db.Close()
 
@@ -701,19 +664,18 @@ func main() {
 					VALUES(?, ?, ?, ?, ?, ?, ?, ?, 1)`
 				insertResult, err := db.Exec(insertQuery, quizId, sort_order, question, answer_1, answer_2, answer_3, answer_4, correct_answer)
 				if err != nil {
-					fmt.Println("error in query", err.Error())
+					log.Fatalln("Error in query", err.Error())
 					tmpl, err := template.New("error").Parse(`<p class="error">There was a problem inserting the question</p>`)
 					if err != nil {
-						fmt.Println("Error rendering template", err.Error())
+						log.Fatalln("Error rendering template", err.Error())
 					}
 					tmpl.Execute(w, "error")
 				}
-				insertedId, err := insertResult.LastInsertId()
-				log.Println("inserted ID", insertedId)
-				if err == nil {
+				_, insertErr := insertResult.LastInsertId()
+				if insertErr == nil {
 					tmpl, err := template.New("success").Parse(`<p class="green">Question added successfully</p>`)
 					if err != nil {
-						fmt.Println("Error rendering template", err.Error())
+						log.Fatalln("Error rendering template", err.Error())
 					}
 					tmpl.Execute(w, "success")
 				}
@@ -727,12 +689,12 @@ func main() {
 
 			tmpl, err := template.ParseFiles(templatesToRender...)
 			if err != nil {
-				fmt.Println("Error rendering template", err.Error())
+				log.Fatalln("Error rendering template", err.Error())
 			}
 
 			err = tmpl.ExecuteTemplate(w, "base", nil)
 			if err != nil {
-				fmt.Println(err.Error())
+				log.Fatalln("Error rendering template", err.Error())
 				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			}
 
