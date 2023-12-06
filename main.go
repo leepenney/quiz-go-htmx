@@ -93,7 +93,6 @@ func getQuizDetails(urlPath string, urlType string) (extractedQuidId string, gro
 			quidId = parts[1]
 			group = parts[2]
 		}
-		fmt.Printf("Quiz name: %s, Group: %s\n", quidId, group)
 		return quidId, group
 	}
 
@@ -381,7 +380,7 @@ func main() {
 			}
 		}
 
-		tmpl, err := template.ParseFiles("templates/base.html", "templates/home.html")
+		tmpl, err := template.ParseFiles("./templates/base.html", "./templates/home.html")
 		if err != nil {
 			log.Fatalln("Error rendering template", err.Error())
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -435,15 +434,15 @@ func main() {
 		}
 
 		templatesToRender := []string{
-			"templates/base.html",
-			"templates/quiz.html",
-			"templates/question.html",
+			"./templates/base.html",
+			"./templates/quiz.html",
+			"./templates/question.html",
 		}
 
 		// if this isn't the first question we only need the question element rendered
 		if questionNum != 1 || quizStarted {
 			templatesToRender = []string{
-				"templates/question.html",
+				"./templates/question.html",
 			}
 		} else {
 			updateSucceeded := updateContestant(contestantId, true, false)
@@ -526,7 +525,7 @@ func main() {
 
 				// return the answer
 				// include a next button to move to the next one
-				tmpl, err := template.ParseFiles("templates/question.html")
+				tmpl, err := template.ParseFiles("./templates/question.html")
 				if err != nil {
 					log.Fatalln("Error rendering template", err.Error())
 					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -581,8 +580,8 @@ func main() {
 
 		var groupScores []Score
 		templatesToRender := []string{
-			"templates/base.html",
-			"templates/scoreboard.html",
+			"./templates/base.html",
+			"./templates/scoreboard.html",
 		}
 		showError := true
 
@@ -683,8 +682,8 @@ func main() {
 		} else {
 
 			templatesToRender := []string{
-				"templates/base.html",
-				"templates/question-add.html",
+				"./templates/base.html",
+				"./templates/question-add.html",
 			}
 
 			tmpl, err := template.ParseFiles(templatesToRender...)
