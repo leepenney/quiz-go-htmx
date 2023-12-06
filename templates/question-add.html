@@ -31,6 +31,10 @@
             <label for="correct_answer">Correct answer</label>
             <input type="number" name="correct_answer" id="correct_answer" min="1" max="4" required>
 
+            {{ if .isAdmin }}
+                <input type="hidden" name="admin" value="ihavethepower">
+            {{ end }}
+
             <button type="submit">Create</button>
 
         </form>

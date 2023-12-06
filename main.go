@@ -152,14 +152,14 @@ func getQuestionDetails(quizId string, questionNumber string) (string, Question)
 	var retrievedQuestion Question
 
 	questionQuery := `SELECT *, quizzes.name, 
-		(SELECT COUNT(*) FROM questions WHERE questions.quiz_id = questions.quiz_id AND active = 1) AS total_questions
+		(SELECT COUNT(*) FROM questions WHERE questions.quiz_id = ? AND active = 1) AS total_questions
 		FROM questions 
 		LEFT JOIN quizzes ON quizzes.quiz_id = questions.quiz_id
 		WHERE questions.quiz_id = ?
 		AND questions.sort_order >= ?
 		AND questions.active = 1`
 
-	result, err := makeDatabaseQuery(questionQuery, quizId, questionNumber)
+	result, err := makeDatabaseQuery(questionQuery, quizId, quizId, questionNumber)
 	if err != nil {
 		log.Fatal("Error getting quiz details", err.Error())
 	}
@@ -320,6 +320,7 @@ func getGroupScores(quizId string, group string) []Score {
 	var scores []Score
 
 	for _, row := range groupScoreResult {
+		fmt.Printf("row %v", row)
 		formattedTimeTaken := secondsToDurationString(row["time_taken_seconds"].(int64))
 
 		thisScore := Score{
@@ -613,90 +614,113 @@ func main() {
 
 	createQuestion := func(w http.ResponseWriter, r *http.Request) {
 
-		if !strings.Contains(r.Host, "127.0.0.1") {
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		okayToShow := false
+		isAdmin := false
+
+		// not a good way to protect this but enough to prevent a casual person stumbling across the page
+		if r.Method == "GET" && r.URL.RawQuery != "" {
+			q := r.URL.Query()
+			adminQueryValue := q.Get("admin")
+			if adminQueryValue == "true" {
+				isAdmin = true
+			}
 		}
 
 		if r.Method == "POST" {
-			var errorText string
-
-			quizId := r.PostFormValue("quiz_id")
-			if quizId == "" {
-				errorText = `<p class="error">Missing quiz ID, this is required</p>`
+			adminFormValue := r.PostFormValue("admin")
+			if adminFormValue == "ihavethepower" {
+				isAdmin = true
 			}
+		}
 
-			sort_order := r.PostFormValue("sort_order")
-			if sort_order == "" {
-				errorText = `<p class="error">Missing sort order, this is required</p>`
-			}
+		if !strings.Contains(r.Host, "127.0.0.1") && !isAdmin {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		} else {
+			okayToShow = true
+		}
 
-			question := r.PostFormValue("question")
-			if question == "" || len(question) < 10 {
-				errorText = `<p class="error">Missing question text or question text too short, this is required</p>`
-			}
+		if okayToShow {
+			if r.Method == "POST" {
+				var errorText string
 
-			correct_answer := r.PostFormValue("correct_answer")
-			if correct_answer == "" {
-				errorText = `<p class="error">Missing correct answer, this is required</p>`
-			}
-
-			if errorText != "" {
-				log.Fatalln("Error detected", errorText)
-				tmpl, err := template.New("error").Parse(errorText)
-				if err != nil {
-					log.Fatalln("Error rendering template", err.Error())
+				quizId := r.PostFormValue("quiz_id")
+				if quizId == "" {
+					errorText = `<p class="error">Missing quiz ID, this is required</p>`
 				}
-				tmpl.Execute(w, "error")
-			} else {
-				answer_1 := r.PostFormValue("answer_1")
-				answer_2 := r.PostFormValue("answer_2")
-				answer_3 := r.PostFormValue("answer_3")
-				answer_4 := r.PostFormValue("answer_4")
 
-				db, err := sql.Open("sqlite3", "./data/quiz-data.db")
-				if err != nil {
-					log.Fatalln("error connecting to database", err.Error())
+				sort_order := r.PostFormValue("sort_order")
+				if sort_order == "" {
+					errorText = `<p class="error">Missing sort order, this is required</p>`
 				}
-				defer db.Close()
 
-				insertQuery := `INSERT INTO questions(quiz_id, sort_order, question, answer_1, answer_2, answer_3, answer_4, correct_answer, active) 
-					VALUES(?, ?, ?, ?, ?, ?, ?, ?, 1)`
-				insertResult, err := db.Exec(insertQuery, quizId, sort_order, question, answer_1, answer_2, answer_3, answer_4, correct_answer)
-				if err != nil {
-					log.Fatalln("Error in query", err.Error())
-					tmpl, err := template.New("error").Parse(`<p class="error">There was a problem inserting the question</p>`)
+				question := r.PostFormValue("question")
+				if question == "" || len(question) < 10 {
+					errorText = `<p class="error">Missing question text or question text too short, this is required</p>`
+				}
+
+				correct_answer := r.PostFormValue("correct_answer")
+				if correct_answer == "" {
+					errorText = `<p class="error">Missing correct answer, this is required</p>`
+				}
+
+				if errorText != "" {
+					log.Fatalln("Error detected", errorText)
+					tmpl, err := template.New("error").Parse(errorText)
 					if err != nil {
 						log.Fatalln("Error rendering template", err.Error())
 					}
 					tmpl.Execute(w, "error")
-				}
-				_, insertErr := insertResult.LastInsertId()
-				if insertErr == nil {
-					tmpl, err := template.New("success").Parse(`<p class="green">Question added successfully</p>`)
+				} else {
+					answer_1 := r.PostFormValue("answer_1")
+					answer_2 := r.PostFormValue("answer_2")
+					answer_3 := r.PostFormValue("answer_3")
+					answer_4 := r.PostFormValue("answer_4")
+
+					db, err := sql.Open("sqlite3", "./data/quiz-data.db")
 					if err != nil {
-						log.Fatalln("Error rendering template", err.Error())
+						log.Fatalln("error connecting to database", err.Error())
 					}
-					tmpl.Execute(w, "success")
+					defer db.Close()
+
+					insertQuery := `INSERT INTO questions(quiz_id, sort_order, question, answer_1, answer_2, answer_3, answer_4, correct_answer, active) 
+						VALUES(?, ?, ?, ?, ?, ?, ?, ?, 1)`
+					insertResult, err := db.Exec(insertQuery, quizId, sort_order, question, answer_1, answer_2, answer_3, answer_4, correct_answer)
+					if err != nil {
+						log.Fatalln("Error in query", err.Error())
+						tmpl, err := template.New("error").Parse(`<p class="error">There was a problem inserting the question</p>`)
+						if err != nil {
+							log.Fatalln("Error rendering template", err.Error())
+						}
+						tmpl.Execute(w, "error")
+					}
+					_, insertErr := insertResult.LastInsertId()
+					if insertErr == nil {
+						tmpl, err := template.New("success").Parse(`<p class="green">Question added successfully</p>`)
+						if err != nil {
+							log.Fatalln("Error rendering template", err.Error())
+						}
+						tmpl.Execute(w, "success")
+					}
 				}
-			}
-		} else {
+			} else {
 
-			templatesToRender := []string{
-				"./templates/base.html",
-				"./templates/question-add.html",
-			}
+				templatesToRender := []string{
+					"./templates/base.html",
+					"./templates/question-add.html",
+				}
 
-			tmpl, err := template.ParseFiles(templatesToRender...)
-			if err != nil {
-				log.Fatalln("Error rendering template", err.Error())
-			}
+				tmpl, err := template.ParseFiles(templatesToRender...)
+				if err != nil {
+					log.Fatalln("Error rendering template", err.Error())
+				}
 
-			err = tmpl.ExecuteTemplate(w, "base", nil)
-			if err != nil {
-				log.Fatalln("Error rendering template", err.Error())
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-			}
+				err = tmpl.ExecuteTemplate(w, "base", map[string]interface{}{"isAdmin": isAdmin})
+				if err != nil {
+					log.Fatalln("Error rendering template", err.Error())
+					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				}
 
+			}
 		}
 	}
 
