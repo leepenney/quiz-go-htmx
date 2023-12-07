@@ -12,7 +12,7 @@
         <form method="POST" action="/{{ .QuizId }}/{{ .Group }}">
 
             <label for="contestant-name">Your name/nickname/nom de plume/handle</label>
-            <input type="text" name="contestant-name" id="contestant-name">
+            <input type="text" name="contestant-name" id="contestant-name" minlength="1">
 
             {{ if .ExistingMessage }}
                 <p class="error">A person with this name has already completed the quiz, please choose another name.</p>

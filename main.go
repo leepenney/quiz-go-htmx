@@ -311,6 +311,7 @@ func getGroupScores(quizId string, group string) []Score {
 		FROM scores
 		WHERE quiz_id = ?
 		AND "group" = ?
+		AND finished IS NOT NULL 
 		ORDER BY correct_answers DESC, (strftime('%s', finished) - strftime('%s', started)) ASC`
 	groupScoreResult, err := makeDatabaseQuery(groupScoreQuery, quizId, group)
 	if err != nil {
@@ -320,8 +321,11 @@ func getGroupScores(quizId string, group string) []Score {
 	var scores []Score
 
 	for _, row := range groupScoreResult {
-		fmt.Printf("row %v", row)
-		formattedTimeTaken := secondsToDurationString(row["time_taken_seconds"].(int64))
+		timeTaken := row["time_taken_seconds"]
+		formattedTimeTaken := ""
+		if timeTaken != nil {
+			formattedTimeTaken = secondsToDurationString(timeTaken.(int64))
+		}
 
 		thisScore := Score{
 			ContestantId:   row["contestant_id"].(string),
@@ -502,13 +506,13 @@ func main() {
 
 				if selectedAnswerInt == int(retrievedQuestion.CorrectAnswer) {
 					// update the score if this is the correct answer
-					gradeText = fmt.Sprintf("<span class=\"green\">Correct!<span> %s", CorrectAnswerText[randomNumber])
+					gradeText = fmt.Sprintf("Correct! %s", CorrectAnswerText[randomNumber])
 					updateSucceeded := updateContestant(contestantId, false, true)
 					if !updateSucceeded {
 						log.Fatalln("Error when updating answer totals for", contestantId)
 					}
 				} else {
-					gradeText = fmt.Sprintf("<span class=\"error\">Incorrect!<span> %s", IncorrectAnswerText[randomNumber])
+					gradeText = fmt.Sprintf("Incorrect! %s", IncorrectAnswerText[randomNumber])
 					updateSucceeded := updateContestant(contestantId, false, false)
 					if !updateSucceeded {
 						log.Fatalln("Error when updating answer totals for", contestantId)
@@ -551,7 +555,7 @@ func main() {
 	}
 
 	scoreboard := func(w http.ResponseWriter, r *http.Request) {
-		quizId, _ := getQuizDetails(r.URL.Path, "scoreboard")
+		quizId, urlGroup := getQuizDetails(r.URL.Path, "scoreboard")
 		quizTitle := "Not Found"
 		totalQuestions := int64(0)
 
@@ -591,6 +595,11 @@ func main() {
 			contestantDetails = getContestantDetails(contestantId)
 			// get all scores for the group, sort by points and total time
 			groupScores = getGroupScores(quizId, contestantDetails.Group)
+			showError = false
+		}
+
+		if contestantId == "" && urlGroup != "" {
+			groupScores = getGroupScores(quizId, urlGroup)
 			showError = false
 		}
 

@@ -5,6 +5,7 @@
     {{ else }}
         <h1>{{ .QuizTitle }} Scoreboard</h1>
 
+        {{ if and .Contestant .Contestant.ContestantName }}
         <p>{{ .Contestant.ContestantName }}, you correctly answered {{ .Contestant.CorrectAnswers }} 
                 {{ if eq .Contestant.CorrectAnswers 1 }}
                     question 
@@ -13,6 +14,7 @@
                 {{- end }}
             out of a total of {{ .TotalQuestions }} questions.
         </p>
+        {{ end }}
 
         <table class="w-full" cellspacing="0" cellpadding="0" border="0">
             <thead>

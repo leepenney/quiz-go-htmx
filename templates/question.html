@@ -4,10 +4,6 @@
 
     <progress class="w-full" value="{{ .Question.Order }}" max="{{ .Question.TotalQuestions }}"></progress>
 
-    {{ if .Answer }}
-        <p class="grade text-center">{{ .GradeText }}</p>
-    {{ end }}
-
     <h3>{{ .Question.QuestionText }}?</h3>
 
     <div>
@@ -40,7 +36,7 @@
                         {{ if eq .Question.Order .Question.TotalQuestions }}
                             See your results
                         {{- else }}
-                            Next
+                            <span class="small">{{ .GradeText }} | Next &rarr;</span>
                         {{- end }}
                     {{- else }}
                         Submit your answer
