@@ -49,6 +49,11 @@ type Contestant struct {
 	QuestionsAnswered int64
 }
 
+type Quiz struct {
+	quizId string
+	Name   string
+}
+
 var CorrectAnswerText = []string{
 	"Well done, you're smarter than you look",
 	"Come on, that was a lucky guess wasn't it? I won't tell anyone...",
@@ -338,6 +343,57 @@ func getGroupScores(quizId string, group string) []Score {
 	}
 
 	return scores
+}
+
+// returns a found quiz if one exists, the new quiz record if one is created and true/false as to whether it succeeded
+func createQuiz(quizId string, quizName string) (*Quiz, bool) {
+	var QuizDetails Quiz
+
+	db, err := sql.Open("sqlite3", "./data/quiz-data.db")
+	if err != nil {
+		log.Fatal("error connecting to database", err.Error())
+		return nil, false
+	}
+	defer db.Close()
+
+	existingQuery := "SELECT quiz_id, name FROM quizzes WHERE quiz_id = ?"
+	rows, err := db.Query(existingQuery, quizId)
+	if err != nil {
+		log.Panicln("error in query", err.Error())
+		return nil, false
+	}
+	defer rows.Close()
+
+	rowCount := 0
+
+	if rows.Next() {
+		if rowCount == 0 {
+			err := rows.Scan(&QuizDetails.quizId, &QuizDetails.Name)
+			if err != nil {
+				log.Fatalln("Unable to save retrieved details to var")
+				return &QuizDetails, false
+			}
+		}
+		rowCount++
+	} else {
+		// no existing details found
+		createQuiz := "INSERT INTO quizzes(quiz_id, name) VALUES(?, ?)"
+		_, createErr := db.Exec(createQuiz, quizId, quizName)
+		if createErr != nil {
+			log.Panicln("Error in insert query", err.Error())
+			return nil, false
+		} else {
+			QuizDetails.quizId = quizId
+			QuizDetails.Name = quizName
+		}
+	}
+
+	if rowCount > 1 {
+		log.Panicln("More than on record found with the quiz ID", quizId)
+		return nil, false
+	}
+
+	return &QuizDetails, true
 }
 
 func main() {
@@ -652,6 +708,8 @@ func main() {
 			if r.Method == "POST" {
 				var errorText string
 
+				quizName := r.PostFormValue("quiz_name")
+
 				quizId := r.PostFormValue("quiz_id")
 				if quizId == "" {
 					errorText = `<p class="error">Missing quiz ID, this is required</p>`
@@ -685,30 +743,36 @@ func main() {
 					answer_3 := r.PostFormValue("answer_3")
 					answer_4 := r.PostFormValue("answer_4")
 
-					db, err := sql.Open("sqlite3", "./data/quiz-data.db")
-					if err != nil {
-						log.Fatalln("error connecting to database", err.Error())
-					}
-					defer db.Close()
+					quizDetails, success := createQuiz(quizId, quizName)
+					if success {
 
-					insertQuery := `INSERT INTO questions(quiz_id, sort_order, question, answer_1, answer_2, answer_3, answer_4, correct_answer, active) 
-						VALUES(?, ?, ?, ?, ?, ?, ?, ?, 1)`
-					insertResult, err := db.Exec(insertQuery, quizId, sort_order, question, answer_1, answer_2, answer_3, answer_4, correct_answer)
-					if err != nil {
-						log.Fatalln("Error in query", err.Error())
-						tmpl, err := template.New("error").Parse(`<p class="error">There was a problem inserting the question</p>`)
+						db, err := sql.Open("sqlite3", "./data/quiz-data.db")
 						if err != nil {
-							log.Fatalln("Error rendering template", err.Error())
+							log.Fatalln("error connecting to database", err.Error())
 						}
-						tmpl.Execute(w, "error")
-					}
-					_, insertErr := insertResult.LastInsertId()
-					if insertErr == nil {
-						tmpl, err := template.New("success").Parse(`<p class="green">Question added successfully</p>`)
+						defer db.Close()
+
+						insertQuery := `INSERT INTO questions(quiz_id, sort_order, question, answer_1, answer_2, answer_3, answer_4, correct_answer, active) 
+							VALUES(?, ?, ?, ?, ?, ?, ?, ?, 1)`
+						insertResult, err := db.Exec(insertQuery, quizDetails.quizId, sort_order, question, answer_1, answer_2, answer_3, answer_4, correct_answer)
 						if err != nil {
-							log.Fatalln("Error rendering template", err.Error())
+							log.Fatalln("Error in query", err.Error())
+							tmpl, err := template.New("error").Parse(`<p class="error">There was a problem inserting the question</p>`)
+							if err != nil {
+								log.Fatalln("Error rendering template", err.Error())
+							}
+							tmpl.Execute(w, "error")
 						}
-						tmpl.Execute(w, "success")
+						_, insertErr := insertResult.LastInsertId()
+						if insertErr == nil {
+							tmpl, err := template.New("success").Parse(`<p class="green">Question added successfully</p>`)
+							if err != nil {
+								log.Fatalln("Error rendering template", err.Error())
+							}
+							tmpl.Execute(w, "success")
+						}
+					} else {
+						log.Fatalln("Error getting/creating quiz details")
 					}
 				}
 			} else {

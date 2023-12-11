@@ -7,8 +7,11 @@
 
         <form hx-post="/create-question/" hx-target="#response">
 
+            <label for="quiz_name">Quiz Name</label>
+            <input type="text" name="quiz_name" id="quiz_name">
+
             <label for="quiz_id">Quiz ID</label>
-            <input type="text" name="quiz_id" id="quiz_id" required>
+            <input type="text" name="quiz_id" id="quiz_id" required minlength="1">
 
             <label for="sort_order">Question number</label>
             <input type="number" name="sort_order" id="sort_order" min="1" required>
@@ -35,7 +38,12 @@
                 <input type="hidden" name="admin" value="ihavethepower">
             {{ end }}
 
-            <button type="submit">Create</button>
+            <button type="submit" hx-on:click="document.getElementById('response').innerHTML = ''">
+                Create
+                <span class="htmx-indicator spinner">
+                    <svg viewBox="0 0 1000 1000" xmlns="http://www.w3.org/2000/svg"><path d="M734 264q-46-46-106-71-62-27-129-27-91 0-168 46-75 44-119 119-46 78-46 168t46 168q44 75 119 119 77 46 168 46 76 0 144-33 65-32 112-88.5T820 582h-86q-26 74-90.5 120.5T499 749q-68 0-125.5-34t-91-91T249 499t33.5-125 91-90.5T499 250q50 0 97 20 44 19 78 54L540 457h291V166z"/></svg>
+                </span>
+            </button>
 
         </form>
 
